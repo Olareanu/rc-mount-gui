@@ -13,6 +13,7 @@ export default defineConfig({
   renderer: {
     plugins: [
       svelte(),
+      // @ts-ignore
       tailwindcss()
     ],
     resolve: {
