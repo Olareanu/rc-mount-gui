@@ -1,6 +1,8 @@
 <script lang="ts">
   import Versions from './components/Versions.svelte'
   import electronLogo from './assets/electron.svg'
+  import {Button} from "$lib/components/ui/button";
+  import './app.css';
 
   const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
 </script>
@@ -21,6 +23,10 @@
   <div class="action">
     <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions a11y-missing-attribute-->
     <a target="_blank" rel="noreferrer" on:click={ipcHandle}>Send IPC</a>
+
+    <Button variant="default">Hello ll</Button>
+
+
   </div>
 </div>
 <Versions />
