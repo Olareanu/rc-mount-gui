@@ -1,20 +1,32 @@
-import { app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage} from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import {app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage} from 'electron'
+import {join} from 'path'
+import {electronApp, optimizer, is} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+
+// Objects for Tray Icon and Main Windows
+let tray: Tray
+let mainWindow: BrowserWindow
+
 
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 400,
     height: 600,
     show: false,
     autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
+    ...(process.platform === 'linux' ? {icon} : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
     }
+  })
+
+
+  // Prevent window from closing (just hide it)
+  mainWindow.on('close', (event) => {
+    event.preventDefault()
+    mainWindow.hide()
   })
 
   mainWindow.on('ready-to-show', () => {
@@ -23,7 +35,7 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
-    return { action: 'deny' }
+    return {action: 'deny'}
   })
 
   // HMR for renderer base on electron-vite cli.
@@ -60,18 +72,46 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  const icon = nativeImage.createFromPath('src/main/assets/cloud-back-up.png')
-  let tray = new Tray(icon)
+  const disconnected_icon = nativeImage.createFromPath('src/main/assets/cloud-disabled.png')
+  // const sync_icon = nativeImage.createFromPath('src/main/assets/cloud-back-up.png')
+  // const completed_icon = nativeImage.createFromPath('src/main/assets/cloud-check.png')
+  // const error_icon = nativeImage.createFromPath('src/main/assets/thunderstorm-risk.png')
+
+  // Make the tray and initialise with icon corresponding to disconnected state
+  tray = new Tray(disconnected_icon)
 
   const contextMenu = Menu.buildFromTemplate([
-    { label: 'Item1', type: 'radio' },
-    { label: 'Item2', type: 'radio' },
-    { label: 'Item3', type: 'radio', checked: true },
-    { label: 'Item4', type: 'radio' }
+    {
+      id: 'connect', label: 'Connect', type: 'normal', click: () => {
+        console.log('Connect')
+      }
+    },
+    {
+      id: 'disconnect', label: 'Disconnect', type: 'normal', click: () => {
+        console.log('Disconnect')
+      }
+    },
+    {
+      id: 'quit', label: 'Quit', type: 'normal', click: () => {
+        mainWindow.removeAllListeners('close') // Allow the window to actually close
+        app.quit()
+      }
+    }
   ])
 
   tray.setToolTip('RClone Mount GUI')
   tray.setContextMenu(contextMenu)
+
+
+  tray.on('click', () => {
+    if (mainWindow.isVisible()) {
+      mainWindow.hide()
+    } else {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+
 
 })
 
@@ -80,6 +120,7 @@ app.whenReady().then(() => {
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
+    mainWindow.removeAllListeners('close') // Allow the window to actually close
     app.quit()
   }
 })
