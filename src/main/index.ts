@@ -2,10 +2,14 @@ import {app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage} from 'elect
 import {join} from 'path'
 import {electronApp, optimizer, is} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import './rclone-service'
+import {startRC} from "./rclone-service";
+import {ChildProcessWithoutNullStreams} from "child_process";
 
 // Objects for Tray Icon and Main Windows
 let tray: Tray
 let mainWindow: BrowserWindow
+let RClone: ChildProcessWithoutNullStreams | null
 
 
 function createWindow(): void {
@@ -29,9 +33,9 @@ function createWindow(): void {
     mainWindow.hide()
   })
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
+  // mainWindow.on('ready-to-show', () => {
+  //   mainWindow.show()
+  // })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
@@ -72,43 +76,50 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  const disconnected_icon = nativeImage.createFromPath('src/main/assets/cloud-disabled.png')
-  // const sync_icon = nativeImage.createFromPath('src/main/assets/cloud-back-up.png')
-  // const completed_icon = nativeImage.createFromPath('src/main/assets/cloud-check.png')
-  // const error_icon = nativeImage.createFromPath('src/main/assets/thunderstorm-risk.png')
+  const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
+  const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
+  // const iconCompleted = nativeImage.createFromPath('resources/cloud-check.png')
+  // const iconError = nativeImage.createFromPath('resources/thunderstorm-risk.png')
 
   // Make the tray and initialise with icon corresponding to disconnected state
-  tray = new Tray(disconnected_icon)
+  tray = new Tray(iconDisconnected)
 
   const contextMenu = Menu.buildFromTemplate([
     {
       id: 'connect', label: 'Connect', type: 'normal', click: () => {
-        console.log('Connect')
+        tray.setImage(iconSync)
+        RClone = startRC()
       }
     },
     {
       id: 'disconnect', label: 'Disconnect', type: 'normal', click: () => {
-        console.log('Disconnect')
+        tray.setImage(iconDisconnected)
+        RClone?.kill("SIGINT")
+        RClone = null
       }
     },
     {
       id: 'quit', label: 'Quit', type: 'normal', click: () => {
+        RClone?.kill("SIGINT")
+        RClone = null
         mainWindow.removeAllListeners('close') // Allow the window to actually close
         app.quit()
       }
     }
   ])
 
-  tray.setToolTip('RClone Mount GUI')
+  tray.setToolTip('Open RClone Mount GUI')
   tray.setContextMenu(contextMenu)
 
 
   tray.on('click', () => {
     if (mainWindow.isVisible()) {
       mainWindow.hide()
+      tray.setToolTip('Open RClone Mount GUI')
     } else {
       mainWindow.show()
       mainWindow.focus()
+      tray.setToolTip('Hide RClone Mount GUI')
     }
   })
 
