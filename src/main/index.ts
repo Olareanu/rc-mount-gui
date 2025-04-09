@@ -1,4 +1,4 @@
-import {app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage} from 'electron'
+import {app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification} from 'electron'
 import {join} from 'path'
 import {electronApp, optimizer, is} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
@@ -6,11 +6,27 @@ import './rclone-service'
 import {startRC} from "./rclone-service";
 import {ChildProcessWithoutNullStreams} from "child_process";
 
-// Objects for Tray Icon and Main Windows
-let tray: Tray
-let mainWindow: BrowserWindow
-let RClone: ChildProcessWithoutNullStreams | null
 
+// Enum for the state of connection
+enum ConnectionState {
+  Connected = 'connected',
+  Disconnected = 'disconnected',
+  Syncing = 'syncing',
+  Error = 'error',
+}
+
+let state: ConnectionState = ConnectionState.Disconnected;
+
+// Objects for Tray Icon and Main Windows
+let tray: Tray;
+let mainWindow: BrowserWindow;
+let rcloneProcess: ChildProcessWithoutNullStreams | null = null;
+
+
+const iconConnected = nativeImage.createFromPath('resources/cloud-check.png')
+const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
+// const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
+const iconError = nativeImage.createFromPath('resources/thunderstorm-risk.png')
 
 function createWindow(): void {
   // Create the browser window.
@@ -51,6 +67,24 @@ function createWindow(): void {
   }
 }
 
+function stopRcloneProcess(): void {
+  if (rcloneProcess !== null) {
+    state = ConnectionState.Disconnected; // only place this should be set to Disconnected
+
+    let terminateSuccessfully = rcloneProcess.kill("SIGINT")
+    if (terminateSuccessfully) {
+      console.log('RClone process terminated successfully');
+      tray.setImage(iconDisconnected);
+    } else {
+      // Should never happen
+      console.log('Could not terminate RClone process properly');
+      new Notification({title: 'Could not terminate RClone process properly', body: 'Open app to see logs'}).show();
+      state = ConnectionState.Error;
+      tray.setImage(iconError);
+    }
+  }
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -76,39 +110,63 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 
-  const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
-  const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
-  // const iconCompleted = nativeImage.createFromPath('resources/cloud-check.png')
-  // const iconError = nativeImage.createFromPath('resources/thunderstorm-risk.png')
-
   // Make the tray and initialise with icon corresponding to disconnected state
   tray = new Tray(iconDisconnected)
+  tray.setToolTip('Open RClone Mount GUI')
 
   const contextMenu = Menu.buildFromTemplate([
     {
       id: 'connect', label: 'Connect', type: 'normal', click: () => {
-        tray.setImage(iconSync)
-        RClone = startRC()
+        if (rcloneProcess == null) {
+          rcloneProcess = startRC();
+
+          // Handle possible error
+          rcloneProcess.on('error', (err) => {
+            console.log('RClone process threw an error. Is RClone configured properly?');
+            new Notification({title: 'RClone process threw an error', body: 'Open app to see logs'}).show();
+            console.log('Error message:');
+            console.error(err.message);
+            state = ConnectionState.Error;
+            tray.setImage(iconError);
+            rcloneProcess = null;
+          })
+
+          // Handle exit
+          rcloneProcess.on('exit', (code: number) => {
+            console.log(`RClone exited with code ${code}`);
+            rcloneProcess = null;
+            // state should be set to Disconnected before RClone process exits, if not, go to error and notify user
+            if (state !== ConnectionState.Disconnected) {
+              console.log('RClone process exited unexpectedly.');
+              new Notification({title: 'RClone process exited unexpectedly', body: 'Open app to see logs'}).show();
+              state = ConnectionState.Error;
+              tray.setImage(iconError);
+            }
+          });
+
+          state = ConnectionState.Connected;
+          tray.setImage(iconConnected);
+
+
+        } else {
+          new Notification({title: 'RClone process already started', body: 'Open app to see logs'}).show();
+        }
       }
     },
     {
       id: 'disconnect', label: 'Disconnect', type: 'normal', click: () => {
-        tray.setImage(iconDisconnected)
-        RClone?.kill("SIGINT")
-        RClone = null
+        stopRcloneProcess();
       }
     },
     {
       id: 'quit', label: 'Quit', type: 'normal', click: () => {
-        RClone?.kill("SIGINT")
-        RClone = null
-        mainWindow.removeAllListeners('close') // Allow the window to actually close
-        app.quit()
+        stopRcloneProcess();
+        mainWindow.removeAllListeners('close'); // Allow the window to actually close
+        app.quit();
       }
     }
   ])
 
-  tray.setToolTip('Open RClone Mount GUI')
   tray.setContextMenu(contextMenu)
 
 
@@ -126,15 +184,3 @@ app.whenReady().then(() => {
 
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    mainWindow.removeAllListeners('close') // Allow the window to actually close
-    app.quit()
-  }
-})
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

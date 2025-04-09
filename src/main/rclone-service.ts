@@ -10,12 +10,12 @@ export function startRC(): ChildProcessWithoutNullStreams {
     '--vfs-cache-mode', 'full',
     '--vfs-cache-max-size', '2G',
     '--vfs-refresh',
-    '--dir-cache-time', '2m',
+    '--dir-cache-time', '1m',
     '--buffer-size', '256M',
     '--attr-timeout', '30s',
     '--transfers', '9',
-    '-v',
-    '--rc'
+    '--rc',
+    '-v'
   ];
 
   const child = spawn(command, args, {shell: false});
@@ -33,10 +33,6 @@ export function startRC(): ChildProcessWithoutNullStreams {
     console.error('STDERR:', errorOutput);
   });
 
-// Handle exit
-  child.on('close', (code: number) => {
-    console.log(`Process exited with code ${code}`);
-  });
 
   return child;
 }
