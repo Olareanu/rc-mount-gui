@@ -1,10 +1,9 @@
-import {app, shell, BrowserWindow, ipcMain, Tray, Menu, nativeImage, Notification} from 'electron'
+import {app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray} from 'electron'
 import {join} from 'path'
-import {electronApp, optimizer, is} from '@electron-toolkit/utils'
+import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import './rclone-service'
-import {startRC} from "./rclone-service";
-import {ChildProcessWithoutNullStreams} from "child_process";
+import './rc-service'
+import {ChildProcessWithoutNullStreams, spawn} from "child_process";
 
 
 // Enum for the state of connection
@@ -67,22 +66,97 @@ function createWindow(): void {
   }
 }
 
+export function startRcloneProcess(): ChildProcessWithoutNullStreams {
+  const command = 'rclone';
+  const args = [
+    'mount',
+    'Hetzner_Box_Encrypted:',
+    'X:',
+    '--vfs-cache-mode', 'full',
+    '--vfs-cache-max-size', '2G',
+    '--vfs-refresh',
+    '--dir-cache-time', '1m',
+    '--buffer-size', '256M',
+    '--attr-timeout', '30s',
+    '--transfers', '9',
+    '--rc',
+    '-v'
+  ];
+
+  const child = spawn(command, args, {shell: false});
+
+  // Handle stdout
+  child.stdout.on('data', (data: Buffer) => {
+    const output = data.toString();
+    console.log('STDOUT:', output);
+    // You can process or store the output here
+  });
+
+  // Handle stderr
+  child.stderr.on('data', (data: Buffer) => {
+    const errorOutput = data.toString();
+    console.error('STDERR:', errorOutput);
+  });
+
+
+  // Handle possible error
+  child.on('error', (err) => {
+    console.error('RC_GUI: ', getLogDateTime(), ' ERROR : RClone process error. Is RClone configured properly? Error Message: ', err.message);
+    new Notification({title: 'RClone process threw an error', body: 'Open app to see logs'}).show();
+    state = ConnectionState.Error;
+    tray.setImage(iconError);
+    rcloneProcess = null;
+  })
+
+  // Handle exit
+  child.on('exit', (code: number) => {
+    console.log('RC_GUI: ', getLogDateTime(), ' INFO  : RClone exited with code', code);
+    rcloneProcess = null;
+    // state should be set to Disconnected before RClone process exits, if not, go to error and notify user
+    if (state !== ConnectionState.Disconnected) {
+      console.error('RC_GUI: ', getLogDateTime(), ' ERROR : RClone process exited unexpectedly.');
+      new Notification({title: 'RClone process exited unexpectedly', body: 'Open app to see logs'}).show();
+      state = ConnectionState.Error;
+      tray.setImage(iconError);
+    }
+  });
+
+  return child
+}
+
 function stopRcloneProcess(): void {
   if (rcloneProcess !== null) {
     state = ConnectionState.Disconnected; // only place this should be set to Disconnected
 
     let terminateSuccessfully = rcloneProcess.kill("SIGINT")
     if (terminateSuccessfully) {
-      console.log('RClone process terminated successfully');
+      console.log('RC_GUI: ', getLogDateTime(), ' INFO  : RClone process terminated successfully');
       tray.setImage(iconDisconnected);
     } else {
       // Should never happen
-      console.log('Could not terminate RClone process properly');
+      console.error('RC_GUI: ', getLogDateTime(), ' ERROR : Could not terminate RClone process properly');
       new Notification({title: 'Could not terminate RClone process properly', body: 'Open app to see logs'}).show();
       state = ConnectionState.Error;
       tray.setImage(iconError);
     }
   }
+}
+
+function getLogDateTime(): string {
+  const now = new Date();
+
+  // Get date components
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+  const day = String(now.getDate()).padStart(2, '0');
+
+  // Get time components
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+
+  // Format the string as YYYY/MM/DD HH:MM:SS
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 }
 
 // This method will be called when Electron has finished
@@ -118,36 +192,10 @@ app.whenReady().then(() => {
     {
       id: 'connect', label: 'Connect', type: 'normal', click: () => {
         if (rcloneProcess == null) {
-          rcloneProcess = startRC();
-
-          // Handle possible error
-          rcloneProcess.on('error', (err) => {
-            console.log('RClone process threw an error. Is RClone configured properly?');
-            new Notification({title: 'RClone process threw an error', body: 'Open app to see logs'}).show();
-            console.log('Error message:');
-            console.error(err.message);
-            state = ConnectionState.Error;
-            tray.setImage(iconError);
-            rcloneProcess = null;
-          })
-
-          // Handle exit
-          rcloneProcess.on('exit', (code: number) => {
-            console.log(`RClone exited with code ${code}`);
-            rcloneProcess = null;
-            // state should be set to Disconnected before RClone process exits, if not, go to error and notify user
-            if (state !== ConnectionState.Disconnected) {
-              console.log('RClone process exited unexpectedly.');
-              new Notification({title: 'RClone process exited unexpectedly', body: 'Open app to see logs'}).show();
-              state = ConnectionState.Error;
-              tray.setImage(iconError);
-            }
-          });
+          rcloneProcess = startRcloneProcess();
 
           state = ConnectionState.Connected;
           tray.setImage(iconConnected);
-
-
         } else {
           new Notification({title: 'RClone process already started', body: 'Open app to see logs'}).show();
         }
@@ -168,7 +216,6 @@ app.whenReady().then(() => {
   ])
 
   tray.setContextMenu(contextMenu)
-
 
   tray.on('click', () => {
     if (mainWindow.isVisible()) {
