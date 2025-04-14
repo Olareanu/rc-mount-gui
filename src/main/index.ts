@@ -4,6 +4,7 @@ import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import './rc-service'
 import {ChildProcessWithoutNullStreams, spawn} from "child_process";
+import {getRcloneVfsStats, getLogDateTime} from "./rc-service";
 
 
 // Enum for the state of connection
@@ -142,23 +143,6 @@ function stopRcloneProcess(): void {
   }
 }
 
-function getLogDateTime(): string {
-  const now = new Date();
-
-  // Get date components
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0'); // Months are 0-based
-  const day = String(now.getDate()).padStart(2, '0');
-
-  // Get time components
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-
-  // Format the string as YYYY/MM/DD HH:MM:SS
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
-}
-
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -174,7 +158,18 @@ app.whenReady().then(() => {
   })
 
   // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.on('ping', () => {
+    console.log('pong')
+
+    // Execute the function and handle any errors
+    getRcloneVfsStats()
+      .then(() => {
+        // console.log('Successfully retrieved rclone VFS stats');
+      })
+      .catch((err) => {
+        // console.error('Failed to retrieve rclone VFS stats:', err.message);
+      });
+  })
 
   createWindow()
 
