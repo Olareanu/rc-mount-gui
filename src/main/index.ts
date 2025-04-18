@@ -3,7 +3,9 @@ import {join} from 'path'
 import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import './rc-service'
-import {ChildProcessWithoutNullStreams, spawn} from "child_process";
+import {ChildProcessWithoutNullStreams, spawn, exec} from "child_process";
+import {promisify} from 'util'
+
 import {getRcloneVfsStats, getLogDateTime} from "./rc-service";
 
 
@@ -102,7 +104,7 @@ export function startRcloneProcess(): ChildProcessWithoutNullStreams {
 
   // Handle possible error
   child.on('error', (err) => {
-    console.error('RC_GUI: ', getLogDateTime(), ' ERROR : RClone process error. Is RClone configured properly? Error Message: ', err.message);
+    console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone process error. Is RClone configured properly? Error Message: ', err.message);
     new Notification({title: 'RClone process threw an error', body: 'Open app to see logs'}).show();
     state = ConnectionState.Error;
     tray.setImage(iconError);
@@ -111,11 +113,11 @@ export function startRcloneProcess(): ChildProcessWithoutNullStreams {
 
   // Handle exit
   child.on('exit', (code: number) => {
-    console.log('RC_GUI: ', getLogDateTime(), ' INFO  : RClone exited with code', code);
+    console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone exited with code', code);
     rcloneProcess = null;
     // state should be set to Disconnected before RClone process exits, if not, go to error and notify user
     if (state !== ConnectionState.Disconnected) {
-      console.error('RC_GUI: ', getLogDateTime(), ' ERROR : RClone process exited unexpectedly.');
+      console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone process exited unexpectedly.');
       new Notification({title: 'RClone process exited unexpectedly', body: 'Open app to see logs'}).show();
       state = ConnectionState.Error;
       tray.setImage(iconError);
@@ -125,20 +127,29 @@ export function startRcloneProcess(): ChildProcessWithoutNullStreams {
   return child
 }
 
-function stopRcloneProcess(): void {
+async function stopRcloneProcess(): Promise<void> {
+  // Creating an async version of exec
+  const execAsync = promisify(exec); // Promisify it
+
   if (rcloneProcess !== null) {
     state = ConnectionState.Disconnected; // only place this should be set to Disconnected
 
-    let terminateSuccessfully = rcloneProcess.kill("SIGINT")
-    if (terminateSuccessfully) {
-      console.log('RC_GUI: ', getLogDateTime(), ' INFO  : RClone process terminated successfully');
-      tray.setImage(iconDisconnected);
-    } else {
+    try {
+      const {stdout, stderr} = await execAsync('rclone rc core/quit')
+      if (stderr) {
+        console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc close command returned STDERR: ', stderr.trim());
+      }
+      if (stdout) {
+        console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone rc close command returned STDOUT: ', stdout.trim());
+      }
+    } catch (error) {
       // Should never happen
-      console.error('RC_GUI: ', getLogDateTime(), ' ERROR : Could not terminate RClone process properly');
-      new Notification({title: 'Could not terminate RClone process properly', body: 'Open app to see logs'}).show();
+      console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc close command filed');
+      new Notification({title: 'RClone rc close command filed', body: 'Open app to see logs'}).show();
       state = ConnectionState.Error;
       tray.setImage(iconError);
+      // do net set rcloneProcess to null, as to not be able to start ot again
+      return;
     }
   }
 }
@@ -198,12 +209,16 @@ app.whenReady().then(() => {
     },
     {
       id: 'disconnect', label: 'Disconnect', type: 'normal', click: () => {
-        stopRcloneProcess();
+        stopRcloneProcess().catch((err) => {
+          console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone closing process failed: ', err.message);
+        })
       }
     },
     {
       id: 'quit', label: 'Quit', type: 'normal', click: () => {
-        stopRcloneProcess();
+        stopRcloneProcess().catch((err) => {
+          console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone closing process failed: ', err.message);
+        })
         mainWindow.removeAllListeners('close'); // Allow the window to actually close
         app.quit();
       }
