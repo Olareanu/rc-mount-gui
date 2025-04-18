@@ -1,4 +1,7 @@
 import {exec} from 'child_process';
+import {promisify} from 'util'
+// import {Notification} from "electron";
+
 
 // Simple function to mimic RClone's time format for logging
 export function getLogDateTime(): string {
@@ -18,39 +21,39 @@ export function getLogDateTime(): string {
   return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
 }
 
-export function getRcloneVfsStats(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    exec('rclone rc vfs/list', (error, stdout, stderr) => {
-      if (error) {
-        console.error('RC_GUI: ', getLogDateTime(), ' ERROR : rc info retrieval command failed with code: ', error.code);
-        // Error message not usually shown, because RClone already writes the error to STDERR, so no need to log again.
+export async function getRcloneVfsStats(): Promise<void> {
+  const execAsync = promisify(exec); // Promisify it
 
-        // console.error(`Error message: ${error.message}`);
+  try {
+    const {stdout, stderr} = await execAsync('rclone rc vfs/stats')
 
-        // if (stderr) {
-        //   console.error('Command stderr output:');
-        //   console.error(stderr.trim());
-        // }
-
-        reject(error);
-        return;
-      }
-
+    if (stderr) {
+      console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc vfs/stats command returned STDERR: ', stderr.trim());
+    }
+    if (stdout) {
       try {
         // Parse the JSON output from rclone
         const stats = JSON.parse(stdout);
-        console.log('RC_GUI: ', getLogDateTime(), ' INFO  : Rclone VFS Statistics:');
+        console.log('RC_GUI:', getLogDateTime(), 'INFO  : Rclone VFS Statistics:');
         console.log(JSON.stringify(stats, null, 2)); // Pretty print the JSON
-      } catch (parseError) {
-        console.error('RC_GUI: ', getLogDateTime(), ' ERROR : Failed to parse rclone output as JSON:');
-        console.error(parseError);
-        console.log('Raw output:');
-        console.log(stdout);
-        reject(parseError);
-        return;
+      } catch (error) {
+        if (error instanceof SyntaxError) {
+          console.error('RC_GUI:', getLogDateTime(), 'ERROR : Failed to parse rclone rc vfs/stats output as JSON:');
+          console.error(error.message);
+          console.log('Raw output:');
+          console.log(stdout);
+          return;
+        } else {
+          console.error('RC_GUI:', getLogDateTime(), 'ERROR : Failed to parse rclone rc vfs/stats output as JSON:', error);
+        }
       }
+    }
 
-      resolve();
-    });
-  });
+  } catch (error) {
+    // Should never happen
+    console.error('RC_GUI:', getLogDateTime(), 'ERROR : rc vfs/stats command failed with error: ', error);
+    return;
+  }
+
+
 }

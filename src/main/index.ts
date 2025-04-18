@@ -137,15 +137,15 @@ async function stopRcloneProcess(): Promise<void> {
     try {
       const {stdout, stderr} = await execAsync('rclone rc core/quit')
       if (stderr) {
-        console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc close command returned STDERR: ', stderr.trim());
+        console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc core/quit command returned STDERR: ', stderr.trim());
       }
       if (stdout) {
-        console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone rc close command returned STDOUT: ', stdout.trim());
+        console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone rc core/quit command returned STDOUT: ', stdout.trim());
       }
     } catch (error) {
       // Should never happen
-      console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc close command filed');
-      new Notification({title: 'RClone rc close command filed', body: 'Open app to see logs'}).show();
+      console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone rc core/quit command filed. Message: ', error);
+      new Notification({title: 'RClone rc core/quit command filed', body: 'Open app to see logs'}).show();
       state = ConnectionState.Error;
       tray.setImage(iconError);
       // do net set rcloneProcess to null, as to not be able to start ot again
@@ -177,9 +177,9 @@ app.whenReady().then(() => {
       .then(() => {
         // console.log('Successfully retrieved rclone VFS stats');
       })
-      .catch((err) => {
-        // console.error('Failed to retrieve rclone VFS stats:', err.message);
-      });
+    // .catch((err) => {
+    //   console.error('Failed to retrieve rclone VFS stats: ------------------------------------', err.message);
+    // });
   })
 
   createWindow()
