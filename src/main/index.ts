@@ -1,12 +1,12 @@
-import {app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray} from 'electron'
+import {app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray} from 'electron'
 import {join} from 'path'
 import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import './rc-service'
-import {ChildProcessWithoutNullStreams, spawn, exec} from "child_process";
+import {ChildProcessWithoutNullStreams, exec, spawn} from "child_process";
 import {promisify} from 'util'
 
-import {getRcloneVfsStats, getLogDateTime} from "./rc-service";
+import {getLogDateTime, registerRcServiceHandlers} from "./rc-service";
 
 
 // Enum for the state of connection
@@ -168,19 +168,8 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => {
-    console.log('pong')
-
-    // Execute the function and handle any errors
-    getRcloneVfsStats()
-      .then(() => {
-        // console.log('Successfully retrieved rclone VFS stats');
-      })
-    // .catch((err) => {
-    //   console.error('Failed to retrieve rclone VFS stats: ------------------------------------', err.message);
-    // });
-  })
+  // Register IPC Handlers for rc-service
+  registerRcServiceHandlers();
 
   createWindow()
 
@@ -240,4 +229,6 @@ app.whenReady().then(() => {
 
 
 })
+
+
 
