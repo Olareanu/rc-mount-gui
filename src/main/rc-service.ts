@@ -23,7 +23,7 @@ export function getLogDateTime(): string {
 }
 
 export function registerRcServiceHandlers(): void {
-  // Register the handlers for thr rc-service
+  // Register the handlers for the rc-service
 
   ipcMain.handle('get-vfs-stats-channel', async (): Promise<any> => {
     // console.log('Main process received getVfsStats request on channel "get-vfs-stats-channel"');
