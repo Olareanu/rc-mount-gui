@@ -2,11 +2,9 @@ import {app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray} from '
 import {join} from 'path'
 import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import './rc-service'
+import {getLogDateTime, getRcloneVfsInfo, registerRcServiceHandlers} from "./rc-service";
 import {ChildProcessWithoutNullStreams, exec, spawn} from "child_process";
 import {promisify} from 'util'
-
-import {getLogDateTime, registerRcServiceHandlers} from "./rc-service";
 
 
 // Enum for the state of connection
@@ -18,6 +16,7 @@ enum ConnectionState {
 }
 
 let state: ConnectionState = ConnectionState.Disconnected;
+let vfsStatusPollingId: NodeJS.Timeout | null = null;
 
 // Objects for Tray Icon and Main Windows
 let tray: Tray;
@@ -27,7 +26,7 @@ let rcloneProcess: ChildProcessWithoutNullStreams | null = null;
 
 const iconConnected = nativeImage.createFromPath('resources/cloud-check.png')
 const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
-// const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
+const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
 const iconError = nativeImage.createFromPath('resources/thunderstorm-risk.png')
 
 function createWindow(): void {
@@ -115,6 +114,14 @@ export function startRcloneProcess(): ChildProcessWithoutNullStreams {
   child.on('exit', (code: number) => {
     console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone exited with code', code);
     rcloneProcess = null;
+
+    // Stop the vfs status polling
+    if (vfsStatusPollingId) {
+      clearInterval(vfsStatusPollingId);
+      vfsStatusPollingId = null;
+      // console.log('Stopped periodic task');
+    }
+
     // state should be set to Disconnected before RClone process exits, if not, go to error and notify user
     if (state !== ConnectionState.Disconnected) {
       console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone process exited unexpectedly.');
@@ -124,6 +131,12 @@ export function startRcloneProcess(): ChildProcessWithoutNullStreams {
     }
   });
 
+  // Start the vfs status polling
+  if (!vfsStatusPollingId) {
+    vfsStatusPollingId = setInterval(updateSyncStatus, 1000);
+    // console.log('Started periodic task');
+  }
+
   return child
 }
 
@@ -132,7 +145,16 @@ async function stopRcloneProcess(): Promise<void> {
   const execAsync = promisify(exec); // Promisify it
 
   if (rcloneProcess !== null) {
+    // Stop the vfs status polling
+    // Need to clear the interval before setting the state to disconnected
+    if (vfsStatusPollingId) {
+      clearInterval(vfsStatusPollingId);
+      vfsStatusPollingId = null;
+      console.log('Stopped periodic task');
+    }
+
     state = ConnectionState.Disconnected; // only place this should be set to Disconnected
+    tray.setImage(iconDisconnected);
 
     try {
       const {stdout, stderr} = await execAsync('rclone rc core/quit')
@@ -152,6 +174,30 @@ async function stopRcloneProcess(): Promise<void> {
       return;
     }
   }
+}
+
+async function updateSyncStatus() {
+
+  try {
+    let info = await getRcloneVfsInfo();
+
+    if (info.diskCache?.uploadsInProgress !== undefined && info.diskCache?.uploadsInProgress !== 0) {
+      state = ConnectionState.Syncing;
+      tray.setImage(iconSync);
+    }
+    if (info.diskCache?.uploadsInProgress !== undefined && info.diskCache?.uploadsInProgress == 0) {
+      state = ConnectionState.Connected;
+      tray.setImage(iconConnected);
+    }
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      // Error was caught in getRcloneVfsInfo and logged
+    } else {
+      console.error('RC_GUI:', getLogDateTime(), 'ERROR : Could not update Sync Status: ', error);
+    }
+  }
+  // See when an update was made
+  // console.log('VFS Status update made at', new Date().toISOString());
 }
 
 // This method will be called when Electron has finished
