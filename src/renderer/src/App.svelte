@@ -16,6 +16,19 @@
     }
 
   }
+
+  function formatBytes(bytes: number, decimals: number = 2): string {
+    if (bytes === 0) return '0 B';
+
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+    // Determine the appropriate unit by calculating the log
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+    // Format the number with the appropriate unit
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
+  }
 </script>
 
 <div class="min-h-screen flex flex-col">
@@ -31,12 +44,14 @@
       <p><strong>Connected FS:</strong> {vfsStats.fs}</p>
       <p><strong>Uploads in progress:</strong> {vfsStats.diskCache?.uploadsInProgress ?? 'N/A'}</p>
       <p><strong>Uploads Queued:</strong> {vfsStats.diskCache?.uploadsQueued ?? 'N/A'}</p>
-      <p><strong>Bytes used by cache:</strong> {vfsStats.diskCache?.bytesUsed ?? 'N/A'} bytes</p>
+      <p><strong>Bytes used by
+        cache:</strong> {vfsStats.diskCache?.bytesUsed !== undefined ? formatBytes(vfsStats.diskCache.bytesUsed) : 'N/A'}
+      </p>
 
       {#if coreStats && typeof coreStats === 'object'}
         <h2 class="mt-4">Transfer Statistics:</h2>
         <p><strong>ETA:</strong> {coreStats.eta !== null ? coreStats.eta : 'N/A'} seconds</p>
-        <p><strong>Speed:</strong> {coreStats.speed} bytes/s</p>
+        <p><strong>Speed:</strong> {coreStats.speed !== undefined ? `${formatBytes(coreStats.speed)}/s` : 'N/A'}</p>
       {/if}
 
     </div>
