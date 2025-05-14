@@ -2,7 +2,7 @@ import {app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray} from '
 import {join} from 'path'
 import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import {getLogDateTime, getRcloneVfsInfo, registerRcServiceHandlers} from "./rc-service";
+import {getLogDateTime, getRcloneVfsStats, registerRcServiceHandlers} from "./rc-service";
 import {ChildProcessWithoutNullStreams, exec, spawn} from "child_process";
 import {promisify} from 'util'
 
@@ -179,7 +179,7 @@ async function stopRcloneProcess(): Promise<void> {
 async function updateSyncStatus() {
 
   try {
-    let info = await getRcloneVfsInfo();
+    let info = await getRcloneVfsStats();
 
     if (info.diskCache?.uploadsInProgress !== undefined && info.diskCache?.uploadsInProgress !== 0) {
       state = ConnectionState.Syncing;

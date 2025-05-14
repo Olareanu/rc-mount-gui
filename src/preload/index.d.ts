@@ -5,6 +5,7 @@ declare global {
     electron: ElectronAPI
     api: {
       getVfsStats(): Promise<any>; // You can replace `any` with a better type if you have one
+      getCoreStats(): Promise<any>;
     };
   }
 }

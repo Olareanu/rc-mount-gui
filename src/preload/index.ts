@@ -6,9 +6,10 @@ import {electronAPI} from '@electron-toolkit/preload'
 // just add to the DOM global.
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
+    contextBridge.exposeInMainWorld('electron', electronAPI);
     contextBridge.exposeInMainWorld('api', {
-      getVfsStats: (): Promise<any> => ipcRenderer.invoke('get-vfs-stats-channel')
+      getVfsStats: (): Promise<any> => ipcRenderer.invoke('get-vfs-stats-channel'),
+      getCoreStats: (): Promise<any> => ipcRenderer.invoke('get-core-stats-channel')
     });
   } catch (error) {
     console.error(error)
