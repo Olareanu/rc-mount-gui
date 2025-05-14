@@ -5,7 +5,12 @@ import icon from '../../resources/icon.png?asset'
 import {getLogDateTime, getRcloneVfsStats, registerRcServiceHandlers} from "./rc-service";
 import {ChildProcessWithoutNullStreams, exec, spawn} from "child_process";
 import {promisify} from 'util'
+import log from 'electron-log/main';
 
+
+// Start logging
+log.initialize();
+Object.assign(console, log.functions); //  Make console.log, console.error, etc. use electron-log
 
 // Enum for the state of connection
 enum ConnectionState {
@@ -150,7 +155,7 @@ async function stopRcloneProcess(): Promise<void> {
     if (vfsStatusPollingId) {
       clearInterval(vfsStatusPollingId);
       vfsStatusPollingId = null;
-      console.log('Stopped periodic task');
+      // console.log('Stopped periodic task');
     }
 
     state = ConnectionState.Disconnected; // only place this should be set to Disconnected
