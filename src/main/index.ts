@@ -6,7 +6,8 @@ import {getLogDateTime, getRcloneVfsStats, registerRcServiceHandlers} from "./rc
 import {ChildProcessWithoutNullStreams, exec, spawn} from "child_process";
 import {promisify} from 'util'
 import log from 'electron-log/main';
-
+import type {AppConfig} from './config';
+import {enforceConfigFileExists, loadConfig} from './config';
 
 // Start logging
 log.initialize();
@@ -20,14 +21,15 @@ enum ConnectionState {
   Error = 'error',
 }
 
+let rcloneProcess: ChildProcessWithoutNullStreams | null = null;
 let state: ConnectionState = ConnectionState.Disconnected;
 let vfsStatusPollingId: NodeJS.Timeout | null = null;
 
 // Objects for Tray Icon and Main Windows
 let tray: Tray;
 let mainWindow: BrowserWindow;
-let rcloneProcess: ChildProcessWithoutNullStreams | null = null;
 
+let appConfig: AppConfig | null = null;
 
 const iconConnected = nativeImage.createFromPath('resources/cloud-check.png')
 const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
@@ -73,24 +75,25 @@ function createWindow(): void {
   }
 }
 
-export function startRcloneProcess(): ChildProcessWithoutNullStreams {
-  const command = 'rclone';
-  const args = [
-    'mount',
-    'Hetzner_Box_Encrypted:',
-    'X:',
-    '--vfs-cache-mode', 'full',
-    '--vfs-cache-max-size', '2G',
-    '--vfs-refresh',
-    '--dir-cache-time', '1m',
-    '--buffer-size', '256M',
-    '--attr-timeout', '30s',
-    '--transfers', '9',
-    '--rc',
-    '-v'
-  ];
+function startRcloneProcess(config: AppConfig): ChildProcessWithoutNullStreams {
 
-  const child = spawn(command, args, {shell: false});
+  // const command = 'rclone';
+  // const args = [
+  //   'mount',
+  //   'Hetzner_Box_Encrypted:',
+  //   'X:',
+  //   '--vfs-cache-mode', 'full',
+  //   '--vfs-cache-max-size', '2G',
+  //   '--vfs-refresh',
+  //   '--dir-cache-time', '1m',
+  //   '--buffer-size', '256M',
+  //   '--attr-timeout', '30s',
+  //   '--transfers', '9',
+  //   '--rc',
+  //   '-v'
+  // ];
+
+  const child = spawn(config.command, config.args, {shell: false});
 
   // Handle stdout
   child.stdout.on('data', (data: Buffer) => {
@@ -237,12 +240,21 @@ app.whenReady().then(() => {
   const contextMenu = Menu.buildFromTemplate([
     {
       id: 'connect', label: 'Connect', type: 'normal', click: () => {
-        if (rcloneProcess == null) {
-          rcloneProcess = startRcloneProcess();
+        try {
+          appConfig = loadConfig();
+        } catch (error) {
+          new Notification({title: 'Could not read config', body: 'Open app to see logs'}).show();
+          appConfig = null;
+        }
+
+
+        if (rcloneProcess == null && appConfig != null) {
+          rcloneProcess = startRcloneProcess(appConfig);
 
           state = ConnectionState.Connected;
           tray.setImage(iconConnected);
-        } else {
+
+        } else if (rcloneProcess != null && appConfig != null) {
           new Notification({title: 'RClone process already started', body: 'Open app to see logs'}).show();
         }
       }
@@ -278,6 +290,27 @@ app.whenReady().then(() => {
     }
   })
 
+  try {
+    if (enforceConfigFileExists()) {
+      appConfig = loadConfig();
+    } else {
+      new Notification({
+        title: 'rc-mount-gui needs configuration',
+        body: 'Edit the config file in the userData folder of your system'
+      }).show();
+    }
+
+  } catch (error) {
+    new Notification({title: 'Could not read config', body: 'Open app to see logs'}).show();
+    appConfig = null;
+  }
+
+  if (appConfig != null && rcloneProcess == null && appConfig.autoStart) {
+    rcloneProcess = startRcloneProcess(appConfig);
+
+    state = ConnectionState.Connected;
+    tray.setImage(iconConnected);
+  }
 
 })
 
