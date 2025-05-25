@@ -280,10 +280,13 @@ app.whenReady().then(() => {
       }
     },
     {
-      id: 'quit', label: 'Quit', type: 'normal', click: () => {
-        stopRcloneProcess().catch((err) => {
+      id: 'quit', label: 'Quit', type: 'normal', click: async () => {
+        await stopRcloneProcess().catch((err) => {
           console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone closing process failed: ', err.message);
         })
+        while(rcloneProcess !== null) {
+          await new Promise(r => setTimeout(r, 100));
+        }
         mainWindow.removeAllListeners('close'); // Allow the window to actually close
         app.quit();
       }
