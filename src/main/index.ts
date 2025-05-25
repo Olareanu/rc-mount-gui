@@ -1,5 +1,5 @@
-import {app, BrowserWindow, Menu, nativeImage, Notification, shell, Tray} from 'electron'
-import {join} from 'path'
+import {app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, Tray} from 'electron'
+import path, {join} from 'path'
 import {electronApp, is, optimizer} from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import {getLogDateTime, getRcloneVfsStats, registerRcServiceHandlers} from "./rc-service";
@@ -224,6 +224,19 @@ app.whenReady().then(() => {
 
   // Register IPC Handlers for rc-service
   registerRcServiceHandlers();
+
+  // Register IPC Handler for opening the config and log location
+  ipcMain.handle('open-config-folder-channel', (): void => {
+    shell.openPath(app.getPath('userData')).then(() => {
+      console.log('RC_GUI:', getLogDateTime(), 'INFO  : Opened config folder at', app.getPath('userData'));
+    });
+  });
+
+  ipcMain.handle('open-log-folder-channel', (): void => {
+    shell.openPath(path.dirname(log.transports.file.getFile().path)).then(() => {
+      console.log('RC_GUI:', getLogDateTime(), 'INFO  : Opened log folder at', app.getPath('userData'));
+    });
+  });
 
   createWindow()
 

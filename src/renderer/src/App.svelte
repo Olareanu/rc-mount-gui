@@ -1,15 +1,25 @@
 <script lang="ts">
   import {Button} from "$lib/components/ui/button";
   import Versions from "./components/Versions.svelte";
+  import { onMount, onDestroy } from 'svelte';
 
-  let vfsStats: any | null = $state(null)
-  let coreStats: any | null = $state(null)
 
+  let vfsStats: any | null = $state(null);
+  let coreStats: any | null = $state(null);
+
+  let pollingId: NodeJS.Timeout | null = null;
 
   const ipcHandle = async (): Promise<void> => {
+    // console.log('IPC Handle');
     try {
-      vfsStats = await window.api.getVfsStats();
-      coreStats = await window.api.getCoreStats();
+      if (await window.api.getRcloneRunning()) {
+        vfsStats = await window.api.getVfsStats();
+        coreStats = await window.api.getCoreStats();
+      } else {
+        vfsStats = null;
+        coreStats = null;
+      }
+
     } catch (error) {
       console.error('Error fetching stats:', error);
       coreStats = {error: "Failed to fetch stats"}; // Indicate error in UI
@@ -29,12 +39,65 @@
     // Format the number with the appropriate unit
     return parseFloat((bytes / Math.pow(k, i)).toFixed(decimals)) + ' ' + sizes[i];
   }
+
+  // Helper to check visibility/focus (true if visible)
+  function isWindowVisible(): boolean {
+    return !document.hidden;
+    // return !document.hidden && document.hasFocus();
+  }
+
+  // Start polling stats every X ms, but only when visible
+  function startPolling() {
+    if (!pollingId) {
+      pollingId = setInterval(() => {
+        if (isWindowVisible()) {
+          ipcHandle();
+        }
+      }, 2000); // e.g., poll every 2 seconds
+    }
+  }
+
+  // Stop polling
+  function stopPolling() {
+    if (pollingId) {
+      clearInterval(pollingId);
+      pollingId = null;
+    }
+  }
+
+  // Visibility/focus event handlers
+  function handleVisibilityChange() {
+    if (isWindowVisible()) {
+      startPolling();
+      ipcHandle();
+    } else {
+      stopPolling();
+    }
+  }
+
+  onMount(() => {
+    // Start polling on mount if visible
+    if (!document.hidden && document.hasFocus()) {
+      ipcHandle();
+      startPolling();
+    }
+    // Listen for tab/window visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange); // covers refocus
+    window.addEventListener('blur', handleVisibilityChange);
+  });
+
+  onDestroy(() => {
+    stopPolling();
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+    window.removeEventListener('focus', handleVisibilityChange);
+    window.removeEventListener('blur', handleVisibilityChange);
+  });
+
+
 </script>
 
 <div class="min-h-screen flex flex-col">
-  <div class="p-16 flex justify-center gap-8">
-    <Button variant="default" onmousedown={ipcHandle} class="justify-center">Get Stats</Button>
-  </div>
 
   <!-- Display the extracted information -->
   {#if vfsStats && typeof vfsStats === 'object' && !vfsStats.error}
@@ -51,17 +114,34 @@
       {#if coreStats && typeof coreStats === 'object'}
         <h2 class="mt-4">Transfer Statistics:</h2>
         <p><strong>ETA:</strong> {coreStats.eta !== null ? coreStats.eta : 'N/A'} seconds</p>
-        <p><strong>Speed:</strong> {coreStats.speed !== undefined ? `${formatBytes(coreStats.speed)}/s` : 'N/A'}</p>
+        <p><strong>Avgreage Speed:</strong> {coreStats.speed !== undefined ? `${formatBytes(coreStats.speed)}/s` : 'N/A'}</p>
       {/if}
 
     </div>
   {:else if vfsStats && vfsStats.error}
     <p class="p-4">Error: {vfsStats.error}</p>
   {:else}
-    <p class="p-4">Click the button to load RClone stats.</p>
+    <p class="p-4">Start RClone Service to see stats.</p>
   {/if}
 
-  <div class="p-4 mt-auto">
+  <div class="flex flex-row justify-center flex-wrap mt-auto">
+<!--    <div class="p-2 flex justify-center">-->
+<!--      <Button variant="default" onmousedown={ipcHandle} class="justify-center">Get Stats</Button>-->
+<!--    </div>-->
+
+    <div class="p-2 flex justify-center">
+      <Button variant="default" onmousedown={window.api.openLogFolder} class="justify-center">Open Logs</Button>
+    </div>
+
+    <div class="p-2 flex justify-center">
+      <Button variant="default" onmousedown={window.api.openConfigFolder} class="justify-center">Open Config</Button>
+    </div>
+
+  </div>
+
+
+
+  <div class="p-4">
     <Versions/>
   </div>
 </div>

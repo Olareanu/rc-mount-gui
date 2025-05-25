@@ -100,6 +100,24 @@ export async function getRcloneCoreStats(): Promise<any> {
   }
 }
 
+export async function getRcloneRunning(): Promise<boolean> {
+  const execAsync = promisify(exec); // Promisify it
+  // console.log('Pong');
+  try {
+    const {stdout, stderr} = await execAsync('rclone rc core/pid')
+
+    if (!stdout || stderr) {
+      return false;
+    }
+
+    const pid = JSON.parse(stdout);
+    return typeof pid === 'object' && pid !== null && !Array.isArray(pid);
+
+  } catch (error) {
+    return false;
+  }
+}
+
 
 export function registerRcServiceHandlers(): void {
   // Register the handlers for the rc-service
@@ -110,6 +128,10 @@ export function registerRcServiceHandlers(): void {
 
   ipcMain.handle('get-core-stats-channel', async (): Promise<any> => {
     return getRcloneCoreStats();
+  });
+
+  ipcMain.handle('get-rclone-running-channel', async (): Promise<any> => {
+    return getRcloneRunning();
   });
 
 }
