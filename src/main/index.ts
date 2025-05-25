@@ -284,7 +284,7 @@ app.whenReady().then(() => {
         await stopRcloneProcess().catch((err) => {
           console.error('RC_GUI:', getLogDateTime(), 'ERROR : RClone closing process failed: ', err.message);
         })
-        while(rcloneProcess !== null) {
+        while (rcloneProcess !== null) {
           await new Promise(r => setTimeout(r, 100));
         }
         mainWindow.removeAllListeners('close'); // Allow the window to actually close
@@ -321,7 +321,7 @@ app.whenReady().then(() => {
     appConfig = null;
   }
 
-  if (appConfig != null && rcloneProcess == null && appConfig.autoStart) {
+  if (appConfig != null && rcloneProcess == null && appConfig.startRcloneOnAppStart) {
     rcloneProcess = startRcloneProcess(appConfig);
 
     state = ConnectionState.Connected;

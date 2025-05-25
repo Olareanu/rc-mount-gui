@@ -7,7 +7,7 @@ import {getLogDateTime} from "./rc-service";
 export type AppConfig = {
   command: string,
   args: string[],
-  autoStart: boolean,
+  startRcloneOnAppStart: boolean,
 };
 
 export function enforceConfigFileExists(): boolean {
@@ -32,7 +32,7 @@ export function enforceConfigFileExists(): boolean {
         "--rc",
         "-v"
       ],
-      autoStart: false
+      startRcloneOnAppStart: false
     };
 
     fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');

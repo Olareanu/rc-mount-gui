@@ -1,7 +1,7 @@
 <script lang="ts">
   import {Button} from "$lib/components/ui/button";
   import Versions from "./components/Versions.svelte";
-  import { onMount, onDestroy } from 'svelte';
+  import {onMount, onDestroy} from 'svelte';
 
 
   let vfsStats: any | null = $state(null);
@@ -13,8 +13,7 @@
     // console.log('IPC Handle');
     try {
       if (await window.api.getRcloneRunning()) {
-        vfsStats = await window.api.getVfsStats();
-        coreStats = await window.api.getCoreStats();
+        [vfsStats, coreStats] = await Promise.all([window.api.getVfsStats(), window.api.getCoreStats()]);
       } else {
         vfsStats = null;
         coreStats = null;
@@ -114,7 +113,8 @@
       {#if coreStats && typeof coreStats === 'object'}
         <h2 class="mt-4">Transfer Statistics:</h2>
         <p><strong>ETA:</strong> {coreStats.eta !== null ? coreStats.eta : 'N/A'} seconds</p>
-        <p><strong>Avgreage Speed:</strong> {coreStats.speed !== undefined ? `${formatBytes(coreStats.speed)}/s` : 'N/A'}</p>
+        <p><strong>Average
+          Speed:</strong> {coreStats.speed !== undefined ? `${formatBytes(coreStats.speed)}/s` : 'N/A'}</p>
       {/if}
 
     </div>
@@ -125,9 +125,9 @@
   {/if}
 
   <div class="flex flex-row justify-center flex-wrap mt-auto">
-<!--    <div class="p-2 flex justify-center">-->
-<!--      <Button variant="default" onmousedown={ipcHandle} class="justify-center">Get Stats</Button>-->
-<!--    </div>-->
+    <!--    <div class="p-2 flex justify-center">-->
+    <!--      <Button variant="default" onmousedown={ipcHandle} class="justify-center">Get Stats</Button>-->
+    <!--    </div>-->
 
     <div class="p-2 flex justify-center">
       <Button variant="default" onmousedown={window.api.openLogFolder} class="justify-center">Open Logs</Button>
@@ -138,7 +138,6 @@
     </div>
 
   </div>
-
 
 
   <div class="p-4">
