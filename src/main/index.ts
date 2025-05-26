@@ -121,9 +121,8 @@ function startRcloneProcess(config: AppConfig): ChildProcessWithoutNullStreams {
   // Handle exit
   child.on('exit', (code: number) => {
     console.log('RC_GUI:', getLogDateTime(), 'INFO  : RClone exited with code', code);
-    rcloneProcess = null;
 
-    // Stop the vfs status polling
+    // Stop the vfs status polling, if it was still running
     if (vfsStatusPollingId) {
       clearInterval(vfsStatusPollingId);
       vfsStatusPollingId = null;
@@ -137,6 +136,9 @@ function startRcloneProcess(config: AppConfig): ChildProcessWithoutNullStreams {
       state = ConnectionState.Error;
       tray.setImage(iconError);
     }
+
+    rcloneProcess = null;
+
   });
 
   // Start the vfs status polling
@@ -321,12 +323,23 @@ app.whenReady().then(() => {
     appConfig = null;
   }
 
-  if (appConfig != null && rcloneProcess == null && appConfig.startRcloneOnAppStart) {
-    rcloneProcess = startRcloneProcess(appConfig);
+  if(appConfig != null){
 
-    state = ConnectionState.Connected;
-    tray.setImage(iconConnected);
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      path: process.execPath,
+      args: [],
+      enabled: appConfig.autoStartOnLogin
+    });
+
+    if (rcloneProcess == null && appConfig.startRcloneOnAppStart) {
+      rcloneProcess = startRcloneProcess(appConfig);
+
+      state = ConnectionState.Connected;
+      tray.setImage(iconConnected);
+    }
   }
+
 
 })
 

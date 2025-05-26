@@ -8,6 +8,7 @@ export type AppConfig = {
   command: string,
   args: string[],
   startRcloneOnAppStart: boolean,
+  autoStartOnLogin: boolean,
 };
 
 export function enforceConfigFileExists(): boolean {
@@ -32,7 +33,8 @@ export function enforceConfigFileExists(): boolean {
         "--rc",
         "-v"
       ],
-      startRcloneOnAppStart: false
+      startRcloneOnAppStart: false,
+      autoStartOnLogin: true
     };
 
     fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');
@@ -48,10 +50,18 @@ export function loadConfig(): AppConfig {
     const configPath = path.join(app.getPath('userData'), 'config.json');
 
     const content = fs.readFileSync(configPath, 'utf-8');
-    let config: AppConfig;
+    const parsedConfig: unknown = JSON.parse(content);
 
-    config = JSON.parse(content);
-    return config;
+    if (!parsedConfig || typeof parsedConfig !== 'object'
+      || !('command' in parsedConfig) || typeof parsedConfig.command !== 'string'
+      || !('args' in parsedConfig) || !Array.isArray(parsedConfig.args)
+      || !('startRcloneOnAppStart' in parsedConfig) || typeof parsedConfig.startRcloneOnAppStart !== 'boolean'
+      || !('autoStartOnLogin' in parsedConfig) || typeof parsedConfig.autoStartOnLogin !== 'boolean'
+    ) {
+      throw new Error('Invalid config file format: missing required properties');
+    }
+
+    return parsedConfig as AppConfig;
 
   } catch (error) {
     if (error instanceof SyntaxError) {
