@@ -52,6 +52,16 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.5"
   },
+  "build": {
+    "appId": "com.rc-mount-gui.app",
+    "productName": "rc-mount-gui",
+    "extraResources": [
+      {
+        "from": "resources/",
+        "to": "./"
+      }
+    ]
+  },
   "pnpm": {
     "ignoredBuiltDependencies": [
       "electron",

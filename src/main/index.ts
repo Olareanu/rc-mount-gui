@@ -31,10 +31,10 @@ let mainWindow: BrowserWindow;
 
 let appConfig: AppConfig | null = null;
 
-const iconConnected = nativeImage.createFromPath('resources/cloud-check.png')
-const iconDisconnected = nativeImage.createFromPath('resources/cloud-disabled.png')
-const iconSync = nativeImage.createFromPath('resources/cloud-back-up.png')
-const iconError = nativeImage.createFromPath('resources/thunderstorm-risk.png')
+const iconConnected = nativeImage.createFromPath(path.join(app.isPackaged ? process.resourcesPath : 'resources', 'cloud-check.png'))
+const iconDisconnected = nativeImage.createFromPath(path.join(app.isPackaged ? process.resourcesPath : 'resources', 'cloud-disabled.png'))
+const iconSync = nativeImage.createFromPath(path.join(app.isPackaged ? process.resourcesPath : 'resources', 'cloud-back-up.png'))
+const iconError = nativeImage.createFromPath(path.join(app.isPackaged ? process.resourcesPath : 'resources', 'thunderstorm-risk.png'))
 
 function createWindow(): void {
   // Create the browser window.
