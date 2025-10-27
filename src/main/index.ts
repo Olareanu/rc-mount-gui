@@ -323,13 +323,12 @@ app.whenReady().then(() => {
     appConfig = null;
   }
 
-  if(appConfig != null){
+  if (appConfig != null) {
 
     app.setLoginItemSettings({
-      openAtLogin: true,
+      openAtLogin: appConfig.addToStartupApps,
       path: process.execPath,
-      args: [],
-      enabled: appConfig.autoStartOnLogin
+      args: []
     });
 
     if (rcloneProcess == null && appConfig.startRcloneOnAppStart) {

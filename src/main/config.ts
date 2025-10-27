@@ -8,7 +8,7 @@ export type AppConfig = {
   command: string,
   args: string[],
   startRcloneOnAppStart: boolean,
-  autoStartOnLogin: boolean,
+  addToStartupApps: boolean,
 };
 
 export function enforceConfigFileExists(): boolean {
@@ -34,7 +34,7 @@ export function enforceConfigFileExists(): boolean {
         "-v"
       ],
       startRcloneOnAppStart: false,
-      autoStartOnLogin: true
+      addToStartupApps: true
     };
 
     fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');
@@ -56,7 +56,7 @@ export function loadConfig(): AppConfig {
       || !('command' in parsedConfig) || typeof parsedConfig.command !== 'string'
       || !('args' in parsedConfig) || !Array.isArray(parsedConfig.args)
       || !('startRcloneOnAppStart' in parsedConfig) || typeof parsedConfig.startRcloneOnAppStart !== 'boolean'
-      || !('autoStartOnLogin' in parsedConfig) || typeof parsedConfig.autoStartOnLogin !== 'boolean'
+      || !('addToStartupApps' in parsedConfig) || typeof parsedConfig.addToStartupApps !== 'boolean'
     ) {
       throw new Error('Invalid config file format: missing required properties');
     }
