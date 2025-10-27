@@ -34,7 +34,7 @@ export function enforceConfigFileExists(): boolean {
         "-v"
       ],
       startRcloneOnAppStart: false,
-      addToStartupApps: true
+      addToStartupApps: false
     };
 
     fs.writeFileSync(configPath, JSON.stringify(dummyConfig, null, 2), 'utf-8');
